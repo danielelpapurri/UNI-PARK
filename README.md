@@ -10,23 +10,4 @@ Características principales
 🔍 Búsqueda rápida de vehículos estacionados.
 🖥️ Interfaz amigable y fácil de usar.
 🛠️ Conexión a base de datos MySQL para almacenamiento seguro.
-Tecnologías utilizadas
-Lenguaje: Java
-IDE: Apache NetBeans
-Base de datos: MySQL
-Conector: XAMMP
 
-Instalación
-Clona este repositorio:
-
-git clone https://github.com/JeanPierreFajardo/Sistema-Parqueadero-Java-MySQL.git
-Abre el proyecto en Apache NetBeans.
-
-Configura la conexión a tu base de datos MySQL en el archivo de conexión.
-
-Ejecuta el sistema y empieza a gestionar tu parqueadero.
-
-Créditos
-Desarrollado por Jean Pierre Fajardo
-correo : jeanpierrefajardo97@gmail.com
-numero celular : 930113595
