@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Listar vehículos</title>
+    <link rel="stylesheet" href="/css/style.css" />
+  </head>
+  <body>
+    <div class="form-shell">
+      <header class="form-header">
+        <h1>Listado de vehículos</h1>
+      </header>
+
+      <main class="form-body">
+        <div class="form-grid">
+          <div class="form-group">
+            <label for="filterPlaca">Placa</label>
+            <input id="filterPlaca" type="text" />
+          </div>
+
+          <div class="form-group">
+            <label for="filterPropietario">Propietario</label>
+            <input id="filterPropietario" type="text" />
+          </div>
+
+          <div class="form-group">
+            <label for="filterFecha">Fecha</label>
+            <input id="filterFecha" type="date" />
+          </div>
+
+          <div class="form-group">
+            <label for="filterTipo">Tipo de vehículo</label>
+            <select id="filterTipo">
+              <option value="">Todos</option>
+              <option value="Motocicleta">Motocicleta</option>
+              <option value="Automovil">Automóvil</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label for="filterUbicacion">Ubicación</label>
+            <input id="filterUbicacion" type="text" />
+          </div>
+        </div>
+
+        <div class="form-actions">
+          <button id="searchVehicles" class="btn btn-primary" type="button">Buscar</button>
+          <a href="/pages/menu.html" class="btn btn-secondary">Volver al menú</a>
+        </div>
+
+        <table>
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Placa</th>
+              <th>Propietario</th>
+              <th>Tipo</th>
+              <th>Hora de entrada</th>
+              <th>Hora de salida</th>
+              <th>Pago</th>
+            </tr>
+          </thead>
+          <tbody id="tblVehiculosBody"></tbody>
+        </table>
+
+        <div id="alertBox" class="alert"></div>
+      </main>
+    </div>
+
+    <script src="/js/app.js"></script>
+  </body>
+</html>
