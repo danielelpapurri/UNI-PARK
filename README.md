@@ -1,13 +1,46 @@
-# UNI-PARK
+# UNI-PARK API
 
-Static browser version of the parking management interface.
+Backend Node.js con Express y PostgreSQL, preparado para Render. El frontend estático se conserva en `public/`.
 
-## Open
+## Ejecutar localmente
 
-Open `public/index.html` in a browser or publish the contents of `public` on any static web host. No Node.js server or database is required.
+Necesitas Node.js 20 o superior y una instancia PostgreSQL. Define `DATABASE_URL` con la cadena de conexión y ejecuta:
 
-## Data
+```bash
+npm install
+npm start
+```
 
-Users, vehicles, reservations, and incidents are stored in the browser's local storage. Data is private to that browser and is not synchronized between devices. This is a front-end demo, not secure authentication or production storage.
+En PowerShell puedes configurar la variable para la sesión actual así:
 
-The initial demo account is `admin` / `1234`.
+```powershell
+$env:DATABASE_URL = "postgresql://usuario:clave@localhost:5432/uni_park"
+npm start
+```
+
+El servidor crea la tabla `usuarios` al iniciar. El esquema también está disponible en `schema.sql`.
+
+## API
+
+- `GET /` devuelve un mensaje de prueba.
+- `POST /api/register` recibe JSON con `nombre`, `email` y `password`.
+
+Ejemplo:
+
+```json
+{
+	"nombre": "Ana Pérez",
+	"email": "ana@example.com",
+	"password": "una-clave-segura"
+}
+```
+
+La contraseña se almacena como hash bcrypt, no como texto plano. Los errores se devuelven en JSON; un email duplicado responde con HTTP 409.
+
+## Desplegar en Render
+
+1. Sube el repositorio a GitHub.
+2. En Render, crea un **Blueprint** y selecciona este repositorio.
+3. Render leerá `render.yaml`, creará el servicio web y PostgreSQL, y conectará `DATABASE_URL` automáticamente.
+
+El comando de inicio configurado es `npm start`. La variable `PORT` la proporciona Render.
