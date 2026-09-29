@@ -1,4 +1,11 @@
 const STORAGE_KEY = 'uniParkAuth';
+const DATA_KEY = 'uniParkData';
+const DEFAULT_SPACES = [
+  'A-01', 'A-02', 'A-03', 'A-04',
+  'B-01', 'B-02', 'B-03', 'B-04',
+  'C-01', 'C-02', 'C-03', 'C-04',
+  'D-01', 'D-02', 'D-03', 'D-04'
+];
 const PROTECTED_PATHS = [
   '/pages/menu.html',
   '/pages/ingresar-vehiculo.html',
@@ -11,17 +18,137 @@ const PROTECTED_PATHS = [
 
 const API = {
   async request(url, options = {}) {
-    const headers = { 'Content-Type': 'application/json', ...(options.headers || {}) };
-    const response = await fetch(url, { ...options, headers });
-    const data = await response.json().catch(() => ({}));
+    const requestUrl = new URL(url, window.location.href);
+    const method = options.method || 'GET';
+    const payload = options.body ? JSON.parse(options.body) : {};
+    const data = getData();
+    let result;
 
-    if (!response.ok) {
-      throw new Error(data.message || 'Error en la petición');
+    if (requestUrl.pathname === '/api/login' && method === 'POST') {
+      const user = data.users.find((item) => item.usuario === payload.usuario && item.contrasena === payload.contrasena);
+      if (!user) throw new Error('Credenciales incorrectas.');
+      result = { ok: true, message: 'Inicio de sesión correcto.', usuario: user.usuario };
+    } else if (requestUrl.pathname === '/api/register' && method === 'POST') {
+      if (data.users.some((item) => item.usuario === payload.usuario)) throw new Error('El usuario ya existe.');
+      data.users.push(payload);
+      result = { ok: true, message: 'Usuario registrado con éxito.' };
+    } else if (requestUrl.pathname === '/api/espacios') {
+      result = { ok: true, data: data.spaces };
+    } else if (requestUrl.pathname === '/api/vehiculos/ingresar' && method === 'POST') {
+      const space = data.spaces.find((item) => item.Nombre_plaza === payload.ubicacion);
+      if (data.vehicles.some((item) => item.Placa === payload.placa)) throw new Error('La placa ya existe en el sistema.');
+      if (!space || space.Estado !== 'Libre') throw new Error('La plaza seleccionada no está disponible.');
+      data.vehicles.push({
+        Id_vehiculo: nextId(data.vehicles, 'Id_vehiculo'),
+        Placa: payload.placa,
+        Propietario: payload.propietario,
+        Condicion: payload.condicion,
+        Tipo_vehiculo: payload.tipoVehiculo,
+        Fecha_entrada: payload.fecha,
+        Hora_entrada: payload.hora,
+        Ubicacion: payload.ubicacion,
+        Fecha_salida: '',
+        Hora_salida: '',
+        Importe: ''
+      });
+      space.Estado = 'Ocupado';
+      result = { ok: true, message: 'Vehículo registrado con éxito.' };
+    } else if (requestUrl.pathname === '/api/vehiculos' && method === 'GET') {
+      const filters = new URLSearchParams(requestUrl.search);
+      const rows = data.vehicles.filter((vehicle) =>
+        (!filters.get('placa') || vehicle.Placa === filters.get('placa')) &&
+        (!filters.get('propietario') || vehicle.Propietario === filters.get('propietario')) &&
+        (!filters.get('fecha') || vehicle.Fecha_entrada === filters.get('fecha')) &&
+        (!filters.get('tipoVehiculo') || vehicle.Tipo_vehiculo === filters.get('tipoVehiculo')) &&
+        (!filters.get('ubicacion') || vehicle.Ubicacion === filters.get('ubicacion'))
+      ).sort((first, second) => second.Id_vehiculo - first.Id_vehiculo);
+      result = { ok: true, data: rows };
+    } else if (requestUrl.pathname === '/api/vehiculos/salir' && method === 'POST') {
+      const vehicle = data.vehicles.find((item) => item.Placa === payload.placa && !item.Fecha_salida);
+      if (!vehicle) throw new Error('No hay un vehículo activo con esa placa.');
+      const now = new Date();
+      const fechaSalida = now.toISOString().slice(0, 10);
+      const horaSalida = now.toTimeString().slice(0, 8);
+      vehicle.Fecha_salida = fechaSalida;
+      vehicle.Hora_salida = horaSalida;
+      vehicle.Importe = calculateFee(vehicle.Fecha_entrada, vehicle.Hora_entrada, fechaSalida, horaSalida);
+      const space = data.spaces.find((item) => item.Nombre_plaza === vehicle.Ubicacion);
+      if (space) space.Estado = 'Libre';
+      const incident = data.incidents.filter((item) => item.placa === vehicle.Placa).at(-1);
+      result = {
+        ok: true,
+        message: 'Vehículo retirado con éxito.',
+        factura: { Fecha_entrada: vehicle.Fecha_entrada, Fecha_salida: fechaSalida, Importe: vehicle.Importe },
+        novedad: incident ? incident.descripcion : 'SIN NOVEDAD'
+      };
+    } else if (requestUrl.pathname.startsWith('/api/vehiculos/') && requestUrl.pathname.endsWith('/entrada')) {
+      const placa = decodeURIComponent(requestUrl.pathname.split('/')[3]);
+      const vehicle = data.vehicles.find((item) => item.Placa === placa && !item.Fecha_salida);
+      if (!vehicle) throw new Error('La placa no existe o no tiene un ingreso activo.');
+      const incident = data.incidents.filter((item) => item.placa === placa).at(-1);
+      result = {
+        ok: true,
+        data: {
+          Fecha: vehicle.Fecha_entrada,
+          Hora_entrada: vehicle.Hora_entrada,
+          novedad: incident ? incident.descripcion : 'SIN NOVEDAD'
+        }
+      };
+    } else if (requestUrl.pathname === '/api/reservas' && method === 'GET') {
+      result = { ok: true, data: [...data.reservations].reverse() };
+    } else if (requestUrl.pathname === '/api/reservas' && method === 'POST') {
+      const status = new Date(`${payload.fecha}T${payload.horaFin}`) < new Date() ? 'Caducada' : 'Activa';
+      data.reservations.push({
+        Id_reserva: nextId(data.reservations, 'Id_reserva'),
+        Nombre_reservista: payload.propietario,
+        Fecha_reserva: payload.fecha,
+        Hora_inicio_reserva: payload.horaInicio,
+        Hora_fin_reserva: payload.horaFin,
+        Estado_reserva: status
+      });
+      result = { ok: true, message: 'Reserva realizada con éxito.' };
+    } else if (requestUrl.pathname === '/api/incidentes' && method === 'POST') {
+      if (!data.vehicles.some((item) => item.Placa === payload.placa)) throw new Error('La placa no existe en el sistema.');
+      data.incidents.push(payload);
+      result = { ok: true, message: 'Incidente registrado con éxito.' };
+    } else {
+      throw new Error('Operación no disponible en esta página.');
     }
 
-    return data;
+    saveData(data);
+    return result;
   }
 };
+
+function getData() {
+  const saved = localStorage.getItem(DATA_KEY);
+  if (saved) return JSON.parse(saved);
+
+  return {
+    users: [{ nombre: 'Admin', apellido: 'Sistema', usuario: 'admin', contrasena: '1234' }],
+    spaces: DEFAULT_SPACES.map((name, index) => ({ Id_plaza: index + 1, Nombre_plaza: name, Estado: 'Libre' })),
+    vehicles: [],
+    reservations: [],
+    incidents: []
+  };
+}
+
+function saveData(data) {
+  localStorage.setItem(DATA_KEY, JSON.stringify(data));
+}
+
+function nextId(items, key) {
+  return items.reduce((largest, item) => Math.max(largest, item[key]), 0) + 1;
+}
+
+function calculateFee(entryDate, entryTime, exitDate, exitTime) {
+  const elapsedHours = (new Date(`${exitDate}T${exitTime}`) - new Date(`${entryDate}T${entryTime}`)) / 3600000;
+  if (!Number.isFinite(elapsedHours) || elapsedHours <= 0) return 0;
+  const amount = elapsedHours >= 24
+    ? Math.floor(elapsedHours / 24) * 8000 + (elapsedHours % 24) * 2000
+    : elapsedHours * 2000;
+  return Number(amount.toFixed(2));
+}
 
 function isLoggedIn() {
   return Boolean(localStorage.getItem(STORAGE_KEY));
@@ -38,18 +165,18 @@ function clearSession() {
 function requireAuth() {
   const currentPath = window.location.pathname;
 
-  if (PROTECTED_PATHS.includes(currentPath) && !isLoggedIn()) {
-    window.location.href = '/pages/login.html';
+  if (PROTECTED_PATHS.some((path) => currentPath.endsWith(path)) && !isLoggedIn()) {
+    window.location.href = 'login.html';
     return false;
   }
 
-  if ((currentPath === '/' || currentPath === '/index.html') && isLoggedIn()) {
-    window.location.href = '/pages/menu.html';
+  if ((currentPath === '/' || currentPath.endsWith('/index.html')) && isLoggedIn()) {
+    window.location.href = 'pages/menu.html';
     return false;
   }
 
-  if ((currentPath === '/pages/login.html' || currentPath === '/pages/register.html') && isLoggedIn()) {
-    window.location.href = '/pages/menu.html';
+  if ((currentPath.endsWith('/pages/login.html') || currentPath.endsWith('/pages/register.html')) && isLoggedIn()) {
+    window.location.href = 'menu.html';
     return false;
   }
 
@@ -134,7 +261,7 @@ async function handleLogin(event) {
 
     setSession(payload.usuario);
     showAlert(result.message, 'success');
-    setTimeout(() => window.location.href = '/pages/menu.html', 700);
+    setTimeout(() => window.location.href = 'menu.html', 700);
   } catch (error) {
     showAlert(error.message, 'error');
   }
@@ -158,7 +285,7 @@ async function handleRegister(event) {
     });
 
     showAlert(result.message, 'success');
-    setTimeout(() => window.location.href = '/pages/login.html', 900);
+    setTimeout(() => window.location.href = 'login.html', 900);
   } catch (error) {
     showAlert(error.message, 'error');
   }
@@ -360,7 +487,7 @@ function initGeneralPages() {
   if (logoutBtn) {
     logoutBtn.addEventListener('click', () => {
       clearSession();
-      window.location.href = '/pages/login.html';
+      window.location.href = 'login.html';
     });
   }
 
@@ -391,8 +518,9 @@ function initGeneralPages() {
   if (reservationForm) {
     reservationForm.addEventListener('submit', handleReservation);
     loadReserveSpaces();
-    loadReservations();
   }
+
+  if (document.getElementById('tblReservasBody')) loadReservations();
 
   const incidentForm = document.getElementById('incidentForm');
   if (incidentForm) incidentForm.addEventListener('submit', handleIncident);

@@ -35,7 +35,7 @@ h1, h2, h3, h4, p {
   display: flex;
   align-items: center;
   justify-content: center;
-  background-image: linear-gradient(rgba(8, 25, 31, 0.5), rgba(8, 25, 31, 0.5)), url('/images/fondo.png');
+  background-image: linear-gradient(rgba(8, 25, 31, 0.5), rgba(8, 25, 31, 0.5)), url('../images/fondo.png');
   background-size: cover;
   background-position: center;
 }
@@ -221,7 +221,7 @@ input:focus, select:focus, textarea:focus {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(rgba(8, 29, 39, 0.72), rgba(8, 29, 39, 0.72)), url('/images/fondo.png') center/cover no-repeat fixed;
+  background: linear-gradient(rgba(8, 29, 39, 0.72), rgba(8, 29, 39, 0.72)), url('../images/fondo.png') center/cover no-repeat fixed;
 }
 
 .login-layout {
